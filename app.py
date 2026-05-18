@@ -1814,7 +1814,7 @@ elif menu == "레바실록":
             col_panel = None
 
         with col_table:
-            _PUBLIC_HIDDEN = {"선택", "완료", "메모아이콘", "_memo_cb", "소스아이콘", "_src_cb", "주식"}
+            _PUBLIC_HIDDEN = {"선택", "완료", "분류", "메모아이콘", "_memo_cb", "소스아이콘", "_src_cb", "주식"}
             display_cols = ["선택", "완료", "제목", "분류", "날짜", "N부", "시간", "길이", "주제", "상세", "다시보기",
                             "메모아이콘", "_memo_cb", "소스아이콘", "_src_cb", "타임라인아이콘", "_tl_cb",
                             "손님", "영도", "주식"]
