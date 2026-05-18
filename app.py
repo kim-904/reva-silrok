@@ -2044,21 +2044,40 @@ elif menu == "레바 그림 갤러리":
                         all_imgs.append({"name": img_nm})
 
             all_imgs.sort(key=lambda x: x["name"], reverse=True)
+
+            import base64, mimetypes
+
+            def _blurred_img_html(path, blur_px=4, width="100%"):
+                mime = mimetypes.guess_type(path)[0] or "image/png"
+                with open(path, "rb") as _f:
+                    b64 = base64.b64encode(_f.read()).decode()
+                return (
+                    f'<img src="data:{mime};base64,{b64}" '
+                    f'style="width:{width};border-radius:6px;filter:blur({blur_px}px);">'
+                )
+
+            # 전체보기 모달
+            sel_key = "gallery_selected_img"
+            if st.session_state.get(sel_key):
+                sel_path = st.session_state[sel_key]
+                if os.path.exists(sel_path):
+                    st.markdown(_blurred_img_html(sel_path, blur_px=4, width="100%"), unsafe_allow_html=True)
+                close_col, _ = st.columns([1, 5])
+                if close_col.button("✕ 닫기", key="gallery_close"):
+                    st.session_state[sel_key] = None
+                    st.rerun()
+                st.divider()
+
             cols = st.columns(4)
             for idx, img in enumerate(all_imgs):
                 path = os.path.join(ABS_DIR, img["name"])
                 if os.path.exists(path):
                     with cols[idx % 4]:
                         if PUBLIC_MODE:
-                            import base64, mimetypes
-                            mime = mimetypes.guess_type(path)[0] or "image/png"
-                            with open(path, "rb") as _f:
-                                b64 = base64.b64encode(_f.read()).decode()
-                            st.markdown(
-                                f'<img src="data:{mime};base64,{b64}" '
-                                f'style="width:100%;border-radius:6px;filter:blur(8px);">',
-                                unsafe_allow_html=True
-                            )
+                            st.markdown(_blurred_img_html(path, blur_px=4), unsafe_allow_html=True)
+                            if st.button("전체보기", key=f"gview_{idx}", use_container_width=True):
+                                st.session_state[sel_key] = path
+                                st.rerun()
                         else:
                             st.image(path, use_container_width=True)
                         name_no_ext = os.path.splitext(img["name"])[0]
