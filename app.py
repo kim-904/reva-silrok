@@ -2049,7 +2049,18 @@ elif menu == "레바 그림 갤러리":
                 path = os.path.join(ABS_DIR, img["name"])
                 if os.path.exists(path):
                     with cols[idx % 4]:
-                        st.image(path, use_container_width=True)
+                        if PUBLIC_MODE:
+                            import base64, mimetypes
+                            mime = mimetypes.guess_type(path)[0] or "image/png"
+                            with open(path, "rb") as _f:
+                                b64 = base64.b64encode(_f.read()).decode()
+                            st.markdown(
+                                f'<img src="data:{mime};base64,{b64}" '
+                                f'style="width:100%;border-radius:6px;filter:blur(12px);">',
+                                unsafe_allow_html=True
+                            )
+                        else:
+                            st.image(path, use_container_width=True)
                         name_no_ext = os.path.splitext(img["name"])[0]
                         st.markdown(f"<p style='font-size:0.85rem;'>{name_no_ext}</p>", unsafe_allow_html=True)
 
