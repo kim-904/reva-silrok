@@ -1,0 +1,6 @@
+backups/
+_normalize_log.jsonl
+.streamlit/secrets.toml
+*.pyc
+__pycache__/
+.DS_Store
