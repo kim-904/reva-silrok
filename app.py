@@ -2067,10 +2067,10 @@ elif menu == "레바 그림 갤러리":
                     with cols[idx % 4]:
                         if PUBLIC_MODE:
                             st.markdown(_blurred_img_html(path, blur_px=4), unsafe_allow_html=True)
-                            if st.button("전체보기", key=f"gview_{idx}", use_container_width=True):
-                                _show_gallery_dialog(path)
                         else:
                             st.image(path, use_container_width=True)
+                        if st.button("전체보기", key=f"gview_{idx}", use_container_width=True):
+                            _show_gallery_dialog(path)
                         name_no_ext = os.path.splitext(img["name"])[0]
                         st.markdown(f"<p style='font-size:0.85rem;'>{name_no_ext}</p>", unsafe_allow_html=True)
 
@@ -2107,16 +2107,21 @@ elif menu == "레바 짤 갤러리":
 
             all_clips.sort(key=lambda x: x["name"], reverse=True)
             if all_clips:
+                @st.dialog("📸 짤 보기", width="large")
+                def _show_clip_dialog(p):
+                    st.image(p, use_container_width=True)
+
                 cols = st.columns(4)
                 shown = 0
                 for idx, clip in enumerate(all_clips):
-                    # 절대경로로 확인
                     clip_path = os.path.join(CLIP_SAVE_DIR, clip["name"])
                     if not os.path.isabs(CLIP_SAVE_DIR):
                         clip_path = os.path.abspath(clip_path)
                     if os.path.exists(clip_path):
                         with cols[shown % 4]:
                             st.image(clip_path, use_container_width=True)
+                            if st.button("전체보기", key=f"cgview_{idx}", use_container_width=True):
+                                _show_clip_dialog(clip_path)
                             name_no_ext = os.path.splitext(clip["name"])[0]
                             st.markdown(f"<p style='font-size:0.85rem;'>{name_no_ext}</p>", unsafe_allow_html=True)
                         shown += 1
