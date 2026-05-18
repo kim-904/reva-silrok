@@ -2047,28 +2047,28 @@ elif menu == "레바 그림 갤러리":
 
             import base64, mimetypes
 
-            def _blurred_img_html(path, blur_px=4, width="100%"):
+            def _img_html(path, blur_px=0, width="100%"):
                 mime = mimetypes.guess_type(path)[0] or "image/png"
                 with open(path, "rb") as _f:
                     b64 = base64.b64encode(_f.read()).decode()
+                blur_style = f"filter:blur({blur_px}px);" if blur_px else ""
                 return (
                     f'<img src="data:{mime};base64,{b64}" '
-                    f'style="width:{width};border-radius:6px;filter:blur({blur_px}px);">'
+                    f'style="width:{width};border-radius:6px;{blur_style}">'
                 )
 
             @st.dialog("🖼️ 그림 보기", width="large")
             def _show_gallery_dialog(p):
-                st.markdown(_blurred_img_html(p, blur_px=4, width="100%"), unsafe_allow_html=True)
+                blur = 4 if PUBLIC_MODE else 0
+                st.markdown(_img_html(p, blur_px=blur, width="100%"), unsafe_allow_html=True)
 
             cols = st.columns(4)
             for idx, img in enumerate(all_imgs):
                 path = os.path.join(ABS_DIR, img["name"])
                 if os.path.exists(path):
                     with cols[idx % 4]:
-                        if PUBLIC_MODE:
-                            st.markdown(_blurred_img_html(path, blur_px=4), unsafe_allow_html=True)
-                        else:
-                            st.image(path, use_container_width=True)
+                        blur = 4 if PUBLIC_MODE else 0
+                        st.markdown(_img_html(path, blur_px=blur), unsafe_allow_html=True)
                         if st.button("전체보기", key=f"gview_{idx}", use_container_width=True):
                             _show_gallery_dialog(path)
                         name_no_ext = os.path.splitext(img["name"])[0]
@@ -2119,7 +2119,14 @@ elif menu == "레바 짤 갤러리":
                         clip_path = os.path.abspath(clip_path)
                     if os.path.exists(clip_path):
                         with cols[shown % 4]:
-                            st.image(clip_path, use_container_width=True)
+                            import base64, mimetypes
+                            mime = mimetypes.guess_type(clip_path)[0] or "image/png"
+                            with open(clip_path, "rb") as _f:
+                                b64 = base64.b64encode(_f.read()).decode()
+                            st.markdown(
+                                f'<img src="data:{mime};base64,{b64}" style="width:100%;border-radius:6px;">',
+                                unsafe_allow_html=True
+                            )
                             if st.button("전체보기", key=f"cgview_{idx}", use_container_width=True):
                                 _show_clip_dialog(clip_path)
                             name_no_ext = os.path.splitext(clip["name"])[0]
