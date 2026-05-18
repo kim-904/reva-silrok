@@ -2056,7 +2056,7 @@ elif menu == "레바 그림 갤러리":
                                 b64 = base64.b64encode(_f.read()).decode()
                             st.markdown(
                                 f'<img src="data:{mime};base64,{b64}" '
-                                f'style="width:100%;border-radius:6px;filter:blur(12px);">',
+                                f'style="width:100%;border-radius:6px;filter:blur(8px);">',
                                 unsafe_allow_html=True
                             )
                         else:
