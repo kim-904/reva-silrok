@@ -2059,16 +2059,14 @@ elif menu == "레바 그림 갤러리":
 
             @st.dialog("🖼️ 그림 보기", width="large")
             def _show_gallery_dialog(p):
-                blur = 4 if PUBLIC_MODE else 0
-                st.markdown(_img_html(p, blur_px=blur, width="100%"), unsafe_allow_html=True)
+                st.markdown(_img_html(p, blur_px=0, width="100%"), unsafe_allow_html=True)
 
             cols = st.columns(4)
             for idx, img in enumerate(all_imgs):
                 path = os.path.join(ABS_DIR, img["name"])
                 if os.path.exists(path):
                     with cols[idx % 4]:
-                        blur = 4 if PUBLIC_MODE else 0
-                        st.markdown(_img_html(path, blur_px=blur), unsafe_allow_html=True)
+                        st.markdown(_img_html(path, blur_px=0), unsafe_allow_html=True)
                         if st.button("전체보기", key=f"gview_{idx}", use_container_width=True):
                             _show_gallery_dialog(path)
                         name_no_ext = os.path.splitext(img["name"])[0]
