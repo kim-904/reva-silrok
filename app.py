@@ -2056,17 +2056,9 @@ elif menu == "레바 그림 갤러리":
                     f'style="width:{width};border-radius:6px;filter:blur({blur_px}px);">'
                 )
 
-            # 전체보기 모달
-            sel_key = "gallery_selected_img"
-            if st.session_state.get(sel_key):
-                sel_path = st.session_state[sel_key]
-                if os.path.exists(sel_path):
-                    st.markdown(_blurred_img_html(sel_path, blur_px=4, width="100%"), unsafe_allow_html=True)
-                close_col, _ = st.columns([1, 5])
-                if close_col.button("✕ 닫기", key="gallery_close"):
-                    st.session_state[sel_key] = None
-                    st.rerun()
-                st.divider()
+            @st.dialog("🖼️ 그림 보기", width="large")
+            def _show_gallery_dialog(p):
+                st.markdown(_blurred_img_html(p, blur_px=4, width="100%"), unsafe_allow_html=True)
 
             cols = st.columns(4)
             for idx, img in enumerate(all_imgs):
@@ -2076,8 +2068,7 @@ elif menu == "레바 그림 갤러리":
                         if PUBLIC_MODE:
                             st.markdown(_blurred_img_html(path, blur_px=4), unsafe_allow_html=True)
                             if st.button("전체보기", key=f"gview_{idx}", use_container_width=True):
-                                st.session_state[sel_key] = path
-                                st.rerun()
+                                _show_gallery_dialog(path)
                         else:
                             st.image(path, use_container_width=True)
                         name_no_ext = os.path.splitext(img["name"])[0]
