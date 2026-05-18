@@ -2016,7 +2016,7 @@ elif menu == "레바 그림 갤러리":
     st.markdown('<div class="gallery-header"><h1>🖼️ 레바 그림 갤러리</h1></div>', unsafe_allow_html=True)
     g_skw = st.sidebar.text_input("검색", placeholder="키워드 , 다중 검색", label_visibility="collapsed", autocomplete="off")
     g_kws = [k.strip() for k in g_skw.split(",") if k.strip()]
-    st.sidebar.caption("🎨 그림은 저작권 보호를 위해 블러 처리되어 있습니다.")
+    st.sidebar.caption("🎨 그림은 제작자의 안위를 위해 블러 처리되어 있습니다.")
     st.sidebar.caption("💡 전체보기 클릭 후 그림이 바로 보이지 않으면 아래로 스크롤해 주세요.")
     st.sidebar.caption("🗓️ 기간 필터")
     gq_col1, gq_col2 = st.sidebar.columns(2)
