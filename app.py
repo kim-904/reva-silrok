@@ -253,9 +253,10 @@ def _rename_timeline_file(src_name: str, canonical_name: str, entry, registry) -
 
 def auto_match_stt(df_db: "pd.DataFrame") -> tuple:
     """broadcast_log 전체를 스캔해 {파일명}-타임라인.csv 규칙을 적용한다.
-    - 레지스트리 항목: live_id 기반 매칭 + 리네임
-    - 레지스트리 없는 기존 파일: 타임라인CSV 컬럼의 파일명으로 직접 리네임
-    Returns (updated_df, matched_count)."""
+    - 1패스: 레지스트리 live_id 기반 매칭 + 리네임
+    - 2패스: 레지스트리 없는 기존 파일 (타임라인CSV 값 기반 리네임)
+    - 3패스: [YYYY-MM-DD] 형식 미연결 파일 스캔 → 날짜 기반 자동 연결 or 모호 목록 반환
+    Returns (updated_df, matched_count, ambiguous_list)."""
     registry = load_registry()
     updated = 0
 
@@ -299,13 +300,17 @@ def auto_match_stt(df_db: "pd.DataFrame") -> tuple:
         existing_col_raw = str(row.get("타임라인CSV", "")).strip()
         existing_col = _tl_basename(existing_col_raw)
         if not existing_col:
-            continue  # 타임라인CSV 자체가 없는 행은 건드리지 않음
+            continue  # 타임라인CSV 자체가 없는 행은 3패스에서 처리
 
-        # 이미 정식 이름이면 컬럼값만 파일명으로 정규화
+        # 이미 정식 이름이고 파일도 존재하면 컬럼값만 정규화 후 통과
         if existing_col == canonical_name:
-            if existing_col_raw != canonical_name:
-                df_db.at[idx, "타임라인CSV"] = canonical_name
-                updated += 1
+            if os.path.exists(os.path.join(TIMELINE_SAVE_DIR, canonical_name)):
+                if existing_col_raw != canonical_name:
+                    df_db.at[idx, "타임라인CSV"] = canonical_name
+                    updated += 1
+                continue
+            # ★ 파일명은 맞지만 실제 파일이 없음 → 3패스에서 재탐색하도록 초기화
+            df_db.at[idx, "타임라인CSV"] = ""
             continue
 
         # 파일 리네임
@@ -318,7 +323,43 @@ def auto_match_stt(df_db: "pd.DataFrame") -> tuple:
             df_db.at[idx, "타임라인CSV"] = canonical_name
             updated += 1
 
-    return df_db, updated
+    # ── 3패스: [YYYY-MM-DD] 형식 파일 스캔 → 미연결 방송과 날짜 매칭 ──────────────
+    bracket_files = [
+        f for f in os.listdir(TIMELINE_SAVE_DIR)
+        if re.match(r'^\[\d{4}-\d{2}-\d{2}\]', f) and f.endswith('.csv')
+    ]
+    # 현재 DB에서 어떤 파일이 이미 연결돼 있는지 수집
+    linked_files = set(
+        _tl_basename(str(v).strip())
+        for v in df_db["타임라인CSV"] if str(v).strip()
+    )
+    ambiguous = []  # 같은 날 여러 방송 → 수동 지정 필요
+
+    for fname in bracket_files:
+        if fname in linked_files:
+            continue  # 이미 연결된 파일 건너뜀
+        m = re.match(r'^\[(\d{4}-\d{2}-\d{2})\]', fname)
+        if not m:
+            continue
+        ds = m.group(1).replace('-', '')
+        # 해당 날짜이면서 타임라인CSV가 비어 있는 레코드 찾기
+        cands = df_db[(df_db["날짜"] == ds) & (df_db["타임라인CSV"].str.strip() == "")]
+        if len(cands) == 0:
+            continue
+        if len(cands) == 1:
+            # 단일 후보 → 자동 연결 (파일명은 그대로, 정규화는 별도)
+            idx = cands.index[0]
+            df_db.at[idx, "타임라인CSV"] = fname
+            updated += 1
+        else:
+            # 여러 후보 → 수동 지정 목록에 추가
+            ambiguous.append({
+                "file": fname,
+                "date": ds,
+                "candidates": cands[["파일명", "part", "제목", "타임라인CSV"]].reset_index().rename(columns={"index": "orig_idx"}).to_dict("records"),
+            })
+
+    return df_db, updated, ambiguous
 
 
 def _write_normalize_log(session_id: str, entries: list):
@@ -480,6 +521,30 @@ def normalize_filenames(df_db):
 
     return df_db, fixed, details, session_id
 
+
+def rename_mac_stt_headers() -> tuple:
+    """맥 STT 헤더(start_ts, end_ts, text)를 한글(시작 시간, 종료 시간, 내용)로 일괄 변환.
+    Returns (converted_count, skipped_count)."""
+    RENAME_MAP = {"start_ts": "시작 시간", "end_ts": "종료 시간", "text": "내용"}
+    converted, skipped = 0, 0
+    if not os.path.exists(TIMELINE_SAVE_DIR):
+        return 0, 0
+    for fname in os.listdir(TIMELINE_SAVE_DIR):
+        if not fname.endswith(".csv"):
+            continue
+        fpath = os.path.join(TIMELINE_SAVE_DIR, fname)
+        try:
+            df = pd.read_csv(fpath, dtype=str).fillna("")
+            targets = {c: RENAME_MAP[c] for c in df.columns if c in RENAME_MAP}
+            if not targets:
+                skipped += 1
+                continue
+            df.rename(columns=targets, inplace=True)
+            df.to_csv(fpath, index=False, encoding="utf-8-sig")
+            converted += 1
+        except Exception:
+            skipped += 1
+    return converted, skipped
 
 def revert_normalize_session(session_id: str) -> tuple:
     """특정 세션의 정규화를 되돌린다. Returns (reverted_count, errors)."""
@@ -1496,6 +1561,35 @@ if menu == "입력":
 elif menu == "레바실록":
     st.title("📂 레바실록")
 
+    # ── 같은 날 여러 방송 수동 매칭 UI ──────────────────────────────────────
+    if st.session_state.get("stt_ambiguous"):
+        pending = []
+        st.warning(f"⚠️ STT 자동 매칭 — 같은 날 여러 방송: 수동 지정 필요 ({len(st.session_state['stt_ambiguous'])}건)")
+        for amb in st.session_state["stt_ambiguous"]:
+            ds_fmt = f"{amb['date'][:4]}-{amb['date'][4:6]}-{amb['date'][6:]}"
+            with st.expander(f"📄 {amb['file']}  ({ds_fmt})", expanded=True):
+                for cand in amb["candidates"]:
+                    part_label = f"{cand['part']}부" if cand.get("part") and cand["part"] not in ("0", "") else "단독"
+                    already = cand.get("타임라인CSV", "")
+                    c1, c2 = st.columns([5, 1])
+                    c1.write(f"[{part_label}] {cand.get('제목', '')}" + ("  *(이미 연결됨)*" if already else ""))
+                    if c2.button("연결", key=f"amb_{amb['file']}_{cand['orig_idx']}"):
+                        _df_amb = pd.read_csv(DB_FILE, dtype=str).fillna("")
+                        _df_amb.at[int(cand["orig_idx"]), "타임라인CSV"] = amb["file"]
+                        _df_amb[CSV_HEADER].to_csv(DB_FILE, index=False, encoding='utf-8-sig')
+                        st.toast(f"✅ 연결 완료: {cand.get('제목', '')}")
+                        st.session_state["stt_ambiguous"] = [
+                            a for a in st.session_state["stt_ambiguous"] if a["file"] != amb["file"]
+                        ]
+                        st.rerun()
+                if st.button("건너뜀 (나중에)", key=f"skip_{amb['file']}"):
+                    st.session_state["stt_ambiguous"] = [
+                        a for a in st.session_state["stt_ambiguous"] if a["file"] != amb["file"]
+                    ]
+                    st.rerun()
+                else:
+                    pending.append(amb)
+
     if 'hist_editor_key' not in st.session_state:
         st.session_state.hist_editor_key = 0
 
@@ -1654,13 +1748,24 @@ elif menu == "레바실록":
             st.sidebar.caption("🔗 STT 연동")
             if st.sidebar.button("🔗 STT CSV 자동 매칭", use_container_width=True):
                 df_for_match = pd.read_csv(DB_FILE, dtype=str).fillna("")
-                df_for_match, cnt = auto_match_stt(df_for_match)
-                if cnt > 0:
+                df_for_match, cnt, ambiguous = auto_match_stt(df_for_match)
+                if cnt > 0 or ambiguous:
                     df_for_match[CSV_HEADER].to_csv(DB_FILE, index=False, encoding='utf-8-sig')
+                if cnt > 0:
                     st.sidebar.success(f"{cnt}개 방송에 타임라인 CSV 연결 완료!")
-                    st.rerun()
-                else:
+                if ambiguous:
+                    st.session_state["stt_ambiguous"] = ambiguous
+                    st.sidebar.warning(f"⚠️ 같은 날 여러 방송 {len(ambiguous)}건 — 수동 지정 필요 (페이지 상단 확인)")
+                if cnt == 0 and not ambiguous:
                     st.sidebar.info("새로 매칭할 항목이 없습니다.")
+                st.rerun()
+
+            if st.sidebar.button("🌐 맥 STT 헤더 한글화", use_container_width=True):
+                _conv, _skip = rename_mac_stt_headers()
+                if _conv > 0:
+                    st.sidebar.success(f"{_conv}개 파일 헤더 변환 완료")
+                else:
+                    st.sidebar.info("변환할 파일이 없습니다 (이미 완료되었거나 해당 헤더 없음)")
 
             if st.sidebar.button("🔧 파일명 일괄 정규화", use_container_width=True):
                 df_norm = pd.read_csv(DB_FILE, dtype=str).fillna("")
@@ -1925,7 +2030,13 @@ elif menu == "레바실록":
                         st.divider()
                         tl_path = info.get("timeline_csv_path", "")
                         if tl_path and os.path.exists(tl_path):
-                            st.dataframe(pd.read_csv(tl_path), use_container_width=True, height=500)
+                            _tl_df = pd.read_csv(tl_path, dtype=str).fillna("")
+                            # 표시할 컬럼 우선순위: 한글 헤더만, 없으면 전체
+                            _SHOW_COLS = ["시작 시간", "종료 시간", "내용", "시작시간", "종료시간"]
+                            _disp_cols = [c for c in _SHOW_COLS if c in _tl_df.columns]
+                            if not _disp_cols:
+                                _disp_cols = _tl_df.columns.tolist()
+                            st.dataframe(_tl_df[_disp_cols], use_container_width=True, height=500)
                             if st.button("🗑️ 타임라인 파일 삭제", key="del_tl_panel"):
                                 os.remove(tl_path)
                                 full_df = pd.read_csv(DB_FILE, dtype=str).fillna("")
