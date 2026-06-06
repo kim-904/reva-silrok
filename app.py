@@ -1012,7 +1012,12 @@ if menu == "입력":
             timeline_csv_in = tl_existing
             if tl_existing:
                 st.caption(f"📎 기존: {os.path.basename(tl_existing)}")
-                pass
+                if tl_c2.button("🗑️ 삭제", key="del_tl"):
+                    if os.path.exists(tl_existing):
+                        os.remove(tl_existing)
+                    st.session_state.form_data["timeline_csv"] = ""
+                    timeline_csv_in = ""
+                    st.rerun()
 
         # ── 소스 CSV ─────────────────────────────────────────────
         st.markdown("**🎬 소스 CSV**")
@@ -1052,7 +1057,12 @@ if menu == "입력":
             source_csv_in = src_existing
             if src_existing:
                 st.caption(f"📎 기존: {os.path.basename(src_existing)}")
-                pass
+                if src_c2.button("🗑️ 삭제", key="del_src"):
+                    if os.path.exists(src_existing):
+                        os.remove(src_existing)
+                    st.session_state.form_data["source_csv"] = ""
+                    source_csv_in = ""
+                    st.rerun()
 
         st.divider()
         # ── 레바 짤 ──────────────────────────────────────────────
