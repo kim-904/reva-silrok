@@ -1012,12 +1012,7 @@ if menu == "입력":
             timeline_csv_in = tl_existing
             if tl_existing:
                 st.caption(f"📎 기존: {os.path.basename(tl_existing)}")
-                if tl_c2.button("🗑️ 삭제", key="del_tl"):
-                    if os.path.exists(tl_existing):
-                        os.remove(tl_existing)
-                    st.session_state.form_data["timeline_csv"] = ""
-                    timeline_csv_in = ""
-                    st.rerun()
+                pass
 
         # ── 소스 CSV ─────────────────────────────────────────────
         st.markdown("**🎬 소스 CSV**")
@@ -1057,12 +1052,7 @@ if menu == "입력":
             source_csv_in = src_existing
             if src_existing:
                 st.caption(f"📎 기존: {os.path.basename(src_existing)}")
-                if src_c2.button("🗑️ 삭제", key="del_src"):
-                    if os.path.exists(src_existing):
-                        os.remove(src_existing)
-                    st.session_state.form_data["source_csv"] = ""
-                    source_csv_in = ""
-                    st.rerun()
+                pass
 
         st.divider()
         # ── 레바 짤 ──────────────────────────────────────────────
@@ -2009,14 +1999,6 @@ elif menu == "레바실록":
                         src_path = info.get("source_csv_path", "")
                         if src_path and os.path.exists(src_path):
                             st.dataframe(pd.read_csv(src_path), use_container_width=True, height=500)
-                            if st.button("🗑️ 소스 파일 삭제", key="del_src_panel"):
-                                os.remove(src_path)
-                                full_df = pd.read_csv(DB_FILE, dtype=str).fillna("")
-                                full_df.at[info["index"], "소스CSV"] = ""
-                                full_df[CSV_HEADER].to_csv(DB_FILE, index=False, encoding='utf-8-sig')
-                                st.session_state.show_memo_info = None
-                                st.toast("소스 파일이 삭제되었습니다.")
-                                st.rerun()
                         else:
                             st.warning("소스 CSV 파일을 찾을 수 없습니다.")
                             if src_path: st.caption(f"경로: {src_path}")
@@ -2037,14 +2019,6 @@ elif menu == "레바실록":
                             if not _disp_cols:
                                 _disp_cols = _tl_df.columns.tolist()
                             st.dataframe(_tl_df[_disp_cols], use_container_width=True, height=500)
-                            if st.button("🗑️ 타임라인 파일 삭제", key="del_tl_panel"):
-                                os.remove(tl_path)
-                                full_df = pd.read_csv(DB_FILE, dtype=str).fillna("")
-                                full_df.at[info["index"], "타임라인CSV"] = ""
-                                full_df[CSV_HEADER].to_csv(DB_FILE, index=False, encoding='utf-8-sig')
-                                st.session_state.show_memo_info = None
-                                st.toast("타임라인 파일이 삭제되었습니다.")
-                                st.rerun()
                         else:
                             st.warning("타임라인 CSV 파일을 찾을 수 없습니다.")
                             if tl_path: st.caption(f"경로: {tl_path}")
